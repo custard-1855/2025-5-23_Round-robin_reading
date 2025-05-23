@@ -1,22 +1,282 @@
-\documentclass{classes/report}
-
+\documentclass[unicode,12pt,aspectratio=169, dvipdfmx]{beamer}
+\usepackage{bxdpx-beamer}
+\usetheme[progressbar=frametitle]{metropolis}
+\renewcommand{\kanjifamilydefault}{\gtdefault}%既定をゴシック体に
+\usepackage{bm}
+% タイトル、著者、日付の情報
+\title{Communication-Efficient Learning of Deep Networks from Decentralized Data}
+\author{竹本志恩}
+\date{\today}
+\institute{INIAD}
+\subject{輪読}
+\AtBeginSection[]{
+  \frame{\frametitle{目次}\tableofcontents[currentsection, hideallsubsections]}
+}
 \begin{document}
 
-\pagenumbering{roman}
-\subfile{sections/title}
-\newpage
+\frame{\maketitle}
 
-\tableofcontents
-\clearpage
 
-\pagenumbering{arabic}
+% 書誌情報スライド（自身の情報整理用メモとして）
+\begin{frame}{書誌情報}
+\begin{columns}
+\begin{column}{.8\linewidth}
+\begin{itemize}
+    \item \textbf{題名}: Communication-Efficient Learning of Deep Networks from Decentralized Data
+    \item \textbf{発表会議/論文誌名}: 20th International Conference on Artificial Intelligence and Statistics (AISTATS) 2017
+    \item \textbf{著者}: H. Brendan McMahan, Eider Moore, Daniel Ramage, Seth Hampson, Blaise Agüera y Arcas
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+\section{1. はじめに (Introduction)}
+\begin{frame}{\insertsectionhead}
+\begin{itemize}
+    \item \textbf{論文が解決しようとする問題}:
+    \begin{itemize}
+        \item 電話やタブレットは主要なコンピューティングデバイスとなりつつある
+        \item これらのデバイス上のプライベートデータから学習したモデルは大きな可能性を秘める
+        \item しかし，プライベートデータを中央に集約・保存することは望ましくない
+        \item 更新内容からも漏洩の可能性
+        \item 従来とデータの分布が大きく異なる（非IID、不均衡）
+    \end{itemize}
+    \item \textbf{提案手法の概要}:
+    \begin{itemize}
+        \item \textbf{Federated Learning (FL)} を提案
+        \item 各端末がローカルで学習し，モデルの更新や差分を統合サーバが平均化してグローバルモデルを更新
+        \item 特に，\textbf{FedAvg}アルゴリズムは、SGDとモデル平均化を組み合わせた手法
+    \end{itemize}
+\end{itemize}
+\end{frame}
 
-\subfile{sections/abstract}
-\newpage
+% \begin{frame}{\insertsectionhead}
+% \begin{itemize}
+%     \item \textbf{この論文を読む自身の目的}:
+%     \begin{itemize}
+%         \item FLの問題意識を理解する。
+%         \item FedAvgの概要と、効率的な集約方法の考え方を把握する。
+%         \item 通信効率のための戦略を学ぶ。
+%     \end{itemize}
+% \end{itemize}
+% \end{frame}
 
-\subfile{sections/main_issue}
-\newpage
 
-\subfile{sections/references}
+\section{2. 関連研究 (Related Work)}
+\begin{frame}{\insertsectionhead}
+\begin{itemize}
+    \item \textbf{先行研究との差異}:
+    \begin{itemize}
+        \item 従来手法は以下が前提
+        % 分散最適化やモデル平均化手法
+        \begin{itemize}
+        \item IIDデータ
+        \item データ数$>$クライアント数
+        \item 高速ネットワーク
+        \end{itemize}
+        \item FLの最適化は前提が異なる:
+        \begin{itemize}
+        \item 非IIDかつ不均衡なデータ
+        \item クライアント数≫データ数
+        \item 通信リソースが限定的
+        \end{itemize}
+        \item FedAvgは，これら課題（非IID，不均衡，通信制約）に対応
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\section{3. 提案手法: FederatedAveraging (FedAvg) アルゴリズム}
+\begin{frame}{\insertsectionhead}
+\begin{itemize}
+    \item \textbf{FedAvgの考え方}:
+    \begin{itemize}
+        % \item 各クライアントはローカルデータで学習
+        % \item 統合サーバとクライアントの連合で学習を進行
+        \item 各ラウンドごとにクライアントを選択 (割合C) し，ローカルで学習
+        \begin{itemize}
+        \item 各クライアントが，ミニバッチサイズBでSGDをE回実行
+        \end{itemize}
+        \item サーバはモデルの更新 $|$モデルパラメータを平均化
+        \item 平均化は，クライアントのデータ量 ($n_k$) で重み付け
+    \end{itemize}
+    \item \textbf{アルゴリズムの主要パラメータ (C, E, B)}:
+    \begin{itemize}
+        \item \textbf{C}: 各ラウンドで選択されるクライアントの割合 
+        % $m = \max(C \cdot K, 1)$ クライアントが選択される (Kは全クライアント数)
+        \item \textbf{E}: 各クライアントがローカルデータを何回学習するか
+        \item \textbf{B}: ローカル学習におけるミニバッチのサイズ
+        \item これらは通信コストや収束に影響
+        \item ローカル計算量を増やし（Eを大きく、Bを小さく），必要な通信ラウンド数を削減
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{提案手法: FedAvg アルゴリズム (続き)}
+\begin{itemize}
+    \item \textbf{FedSGDとの違い}:
+    \begin{itemize}
+        \item \textbf{FedSGD}はE=1，B=$\infty$のFedAvgに相当
+        \begin{itemize}
+            \item ローカルでのSGDを一回だけ実行
+            \item ローカルデータを全て使用 $>$ミニバッチサイズが無限大
+        \end{itemize}
+        \item \textbf{FedAvg}は，ローカルで複数回SGDを実行可能（$E>1$）
+        \item FedSGDは勾配を、FedAvgはモデルパラメータを平均化するという記述も見かけたが、本論文のFedAvgはデータ量で重み付けしたモデルパラメータの平均化を行っている...?
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+% \begin{frame}{提案手法: FedAvg アルゴリズム (続き)}
+% \begin{itemize}
+%     \item \textbf{アルゴリズムの詳細について（自身が理解できた点・理解に苦しむ点）}:
+%     \begin{itemize}
+%         \item モデルパラメータの平均化は、クライアントのデータセットサイズ $n_k$ で重み付けされることで、グローバルな目的関数 $f(w) = \frac{1}{n}\sum_{i=1}^n f_i(w)$ の勾配ステップの期待値と一致するように設計されている点は理解できた。
+%         \item しかし、非凸関数であるニューラルネットワークにおいてパラメータ空間での単純平均がなぜうまくいくのか、という点は依然として理解を深める必要がある。論文中では「十分過剰にパラメータ化されたNNの損失面は予想外に振る舞いが良い」という先行研究を引用している。
+%         \item Eが過剰に大きい場合、特に収束の後半段階で、FedAvgがプラトーに達したり発散したりする可能性が示唆されている。これは、収束に近づいたらローカルの計算量（EやB）を調整することが有効かもしれないという自身の考察にもつながる。
+%     \end{itemize}
+% \end{itemize}
+% \end{frame}
+
+
+
+\section{4. 実験結果 (Experimental Results)}
+\begin{frame}{\insertsectionhead}
+\begin{itemize}
+    \item \textbf{実験設定}
+    \begin{itemize}
+        \item 複数のデータセットとモデルで検証
+        \begin{itemize}
+            \item MNIST (手書き数字認識): シンプルな2層NN、CNN
+            \item Shakespeare (言語モデリング): LSTM
+            \item CIFAR-10 (画像認識): CNN
+        \end{itemize}
+        \item データ分割方法を検証
+        \begin{itemize}
+            \item IID (独立同分布)
+            \item 非IID (非独立同分布): 病的な分割（例: MNISTで各クライアントが2種類のみの数字を持つ），自然な分割（Shakespeareの役割ごと）
+            \item 不均衡データ（FedAvgにとっては少し容易だったとの記述あり）
+        \end{itemize}
+    \end{itemize}
+    \item \textbf{主要な評価指標}
+    \begin{itemize}
+        \item 目標精度に達するまでの通信ラウンド数
+        \item FedAvgのパラメータ (C, E, B) が通信コストに与える影響
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{実験結果 (Experimental Results) (続き)}
+\begin{itemize}
+    \item \textbf{主要な結果}:
+    \begin{itemize}
+        % \item \textbf{通信効率の向上}:
+        % \begin{itemize}
+        %     \item FedAvgはFedSGDや標準SGDと比較して、目標精度達成に必要な通信ラウンド数を大幅に削減
+        %     % \item 例: CIFAR-10で85\%精度達成に、標準SGDが99000ラウンドに対しFedAvgは2000ラウンド (約49.5倍速)
+        % \end{itemize}
+        \item \textbf{パラメータ (C, E, B) の影響}:
+        \begin{itemize}
+            \item ローカル計算量 ($E \times $ データサイズ$/B$) の増加で，通信ラウンド数を削減
+            \item 特にEの効果が大きい. 例: MNIST 2NN (IID) でE=1からE=20, B=10にすることで、ラウンド数は45.9倍削減
+            \item クライアント選択率Cを増やすと、各ラウンドの通信量は増えるが、ラウンド数は減少傾向にある
+        \end{itemize}
+        \item \textbf{非IIDデータでの性能}:
+        \begin{itemize}
+            \item 病的な非IIDデータに対しても、FedAvgは収束し、FedSGDと比較して通信ラウンド数を大幅に削減した
+            % \item 例: Shakespeare (Non-IID) でE=5, B=10の場合、FedSGD (E=1, B=$\infty$) と比較してラウンド数で95.3倍速
+            % \item パラメータ空間での単純平均が、全く異なるデータセットで学習したモデルに対しても（発散せずに）有効であることは、この手法の頑健性を示す強い証拠である
+        \end{itemize}
+    \end{itemize}
+    % \item \textbf{実験結果に関する自身の注目点}:
+    % \begin{itemize}
+    %     % \item 病的な非IIDデータでも大きく性能が向上する点が驚きだった
+    %     \item ローカル計算を増やすことが通信削減に非常に効果的であることが明確に示されている。これはリソースが限定的なIoTデバイスへの適用を考える上で重要なトレードオフになる
+    % \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\section{5. 議論・結論 (Discussion, Conclusions)}
+\begin{frame}{\insertsectionhead}
+\begin{itemize}
+    \item \textbf{論文の貢献}:
+    \begin{itemize}
+        \item FLの実用的な枠組みとFedAvgアルゴリズムを提案
+        \item FedAvgが深層学習モデルや非IID/不均衡データに機能すると示した
+        \item ローカルでの計算量増加が，通信ラウンド数を劇的に削減すると示した
+        \item FedAvgは学習損失の最適化にも有効である?
+    \end{itemize}
+    \item \textbf{今後の課題}:
+    \begin{itemize}
+        \item 更なるプライバシー強化 (差分プライバシー，セキュアマルチパーティ計算)
+        \item クライアントデータの動的な変化やクライアントの可用性といった実環境での課題への対応．同期型FedAvgでは応答のないクライアントへの対処が必要
+        \item ローカル計算量の過剰な増加による収束への悪影響．収束状況に応じたパラメータ調整が有効?
+        % \item 非凸最適化におけるモデル平均化の理論的な理解深化
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{今後の展望}
+\begin{itemize}
+    \item \textbf{自身の研究テーマとの関連}:
+    \begin{itemize}
+        % \item この論文で示されたFLの基本問題設定（プライバシー、非IID、通信制約）とFedAvgの考え方（ローカル計算と平均化）は、自身の研究の出発点となる
+        \item IoTデバイスへの適用に興味がある
+        \begin{itemize}
+            \item しかし本論文の初期想定はスマホ寄り
+            \item IoT特有のリソース制約（計算能力，バッテリー，通信帯域）を考慮したFedAvgの変形や他手法の検討が必要?
+        \end{itemize}
+        \item プライバシー・セキュリティ（悪意ある参加者への対策など）は重要な課題
+        \begin{itemize}
+            \item DP，MCPなどの組み合わせを深掘りしたい
+            \item 特に集約方法によって適切な施策が変わる可能性に関心がある
+        \end{itemize}
+        \item 最適化について
+        \begin{itemize}
+            \item FedAvgは通信回数について通信効率化に寄与
+            \item しかし他はあまり気にしていなさそう
+            \item エネルギー消費や帯域利用など低レイヤやネットワークも気にしたい
+% あるいは非IIDデータに対する収束性向上に向けたアルゴリズムを検討したい
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{今後の展望}
+    \begin{itemize}
+        \item 今後は以下をサーベイ，追試
+        \begin{itemize}
+            \item IoT環境でのFLアルゴリズム
+            \item セキュリティ・プライバシー担保: DPやMCPの適用
+            \item エネルギー消費や帯域利用などの最適化
+            \item 音による行動認識と関連する社会課題
+        \end{itemize}
+        \item 自身の研究テーマを具体化する        
+    \end{itemize}
+\end{frame}
+
+
+
+
+% \begin{frame}{サーベイの所感}
+%     \begin{itemize}
+%         \item 自身のサーベイでも、非IID性、不均衡性、通信効率の重要性が強調されていることを確認
+%         \item プライバシー向上策として以下との組み合わせに言及:
+%         \begin{itemize}
+%         \item 差分プライバシー（DP）
+%         \item セキュアマルチパーティ計算（MPC）
+%         \item これらは他の研究でも言及がある
+%         \end{itemize}
+%         \item 本論文で今後の検討として現実的な環境での課題に言及:
+%         \begin{itemize}
+%         \item クライアントデータの動的な変化
+%         \item クライアントの可用性
+%         \item これはIoTデバイスなどへの適用を考える上で重要そう
+%         \end{itemize}
+%     \end{itemize}
+% \end{frame}
+
 
 \end{document}
